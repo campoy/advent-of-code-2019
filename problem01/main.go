@@ -30,5 +30,9 @@ func main() {
 
 func computeFuel(mass int64) int64 {
 	// take its mass, divide by three, round down, and subtract 2.
-	return mass/3 - 2
+	fuel := mass/3 - 2
+	if fuel <= 0 {
+		return 0
+	}
+	return fuel + computeFuel(fuel)
 }
