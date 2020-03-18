@@ -21,11 +21,11 @@ func main() {
 		log.Fatalf("could not parse first cable: %v", err)
 	}
 
-	res, ok := mergeBoards(cable1, cable2)
+	res, dist, ok := mergeBoards(cable1, cable2)
 	if !ok {
 		log.Fatalf("could not find any intersections")
 	}
-	fmt.Printf("closest intersection to origin is %v with distance %d\n", res, res.distToZero())
+	fmt.Printf("intersection with lowest cable distance found at %v with distance %d\n", res, dist)
 }
 
 type position struct{ x, y int }
@@ -49,7 +49,7 @@ func (p *position) distToZero() int {
 	return dx + dy
 }
 
-type board map[position]bool
+type board map[position]int
 
 func parseCable(s *bufio.Scanner) (board, error) {
 	if !s.Scan() {
@@ -61,8 +61,7 @@ func parseCable(s *bufio.Scanner) (board, error) {
 	b := make(board)
 	var p position
 
-	b[p] = true
-
+	dist := 0
 	for i, move := range moves {
 		var inc position
 		switch dir := move[0]; dir {
@@ -83,23 +82,30 @@ func parseCable(s *bufio.Scanner) (board, error) {
 
 		for i := 0; i < steps; i++ {
 			p.move(inc)
-			b[p] = true
+			dist++
+			if b[p] != 0 {
+				continue
+			}
+			b[p] = dist
 		}
 	}
 
 	return b, nil
 }
 
-func mergeBoards(b1, b2 board) (position, bool) {
+func mergeBoards(b1, b2 board) (position, int, bool) {
 	var minInt position
-	for p, ok := range b1 {
-		if p.isZero() || !ok || !b2[p] {
+	var minDist int
+
+	for p := range b1 {
+		if p.isZero() || b1[p] == 0 || b2[p] == 0 {
 			continue
 		}
 		fmt.Printf("found intersection at %v\n", p)
-		if minInt.isZero() || p.distToZero() < minInt.distToZero() {
+		if dist := b1[p] + b2[p]; minInt.isZero() || dist < minDist {
 			minInt = p
+			minDist = dist
 		}
 	}
-	return minInt, !minInt.isZero()
+	return minInt, minDist, !minInt.isZero()
 }
