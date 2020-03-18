@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -11,27 +12,47 @@ import (
 )
 
 func main() {
+	goal := flag.Int("goal", 0, "output we expect to reach by changing noun and verb")
+	flag.Parse()
+
 	text, err := ioutil.ReadAll(os.Stdin)
 	if err != nil {
 		log.Fatal(err)
 	}
 
 	nums := strings.Split(string(text), ",")
-	cells := make([]int, len(nums))
+	program := make([]int, len(nums))
 	for i, num := range nums {
-		cells[i], err = strconv.Atoi(strings.TrimSpace(num))
+		program[i], err = strconv.Atoi(strings.TrimSpace(num))
 		if err != nil {
 			log.Fatalf("could not parse number %q: %v", num, err)
 		}
 	}
 
-	c := computer{cells: cells}
-	for !c.done {
-		fmt.Println(c)
-		if err := c.next(); err != nil {
-			log.Fatal(err)
+	for noun := 0; noun < 100; noun++ {
+		for verb := 0; verb < 100; verb++ {
+			cells := make([]int, len(program))
+			copy(cells, program)
+
+			cells[1] = noun
+			cells[2] = verb
+
+			c := computer{cells: cells}
+			for !c.done {
+				if err := c.next(); err != nil {
+					log.Fatal(err)
+				}
+			}
+
+			if cells[0] == *goal {
+				fmt.Printf("noun: %d\n", noun)
+				fmt.Printf("verb: %d\n", verb)
+				return
+			}
 		}
 	}
+	fmt.Println("no combination found")
+	os.Exit(1)
 }
 
 type computer struct {
@@ -62,15 +83,8 @@ func (c computer) String() string {
 	return w.String()
 }
 
-func (c *computer) read(pos int) int {
-	fmt.Printf("r(%d): %d\n", pos, c.cells[pos])
-	return c.cells[pos]
-}
-
-func (c *computer) write(pos, val int) {
-	fmt.Printf("w(%d, %d)\n", pos, val)
-	c.cells[pos] = val
-}
+func (c *computer) read(pos int) int   { return c.cells[pos] }
+func (c *computer) write(pos, val int) { c.cells[pos] = val }
 
 type opCode int
 
@@ -101,7 +115,6 @@ func (c *computer) nextInstruction() (*instruction, error) {
 	op := opCode(c.cells[c.nextInst])
 	switch op {
 	case opHalt:
-		c.nextInst++
 		return &instruction{code: op}, nil
 	case opAdd, opMult:
 		idx := c.nextInst
@@ -122,8 +135,6 @@ func (c *computer) next() error {
 	if err != nil {
 		return err
 	}
-
-	fmt.Println("executing instruction:", inst)
 
 	switch inst.code {
 	case opAdd:
