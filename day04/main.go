@@ -67,16 +67,25 @@ func (p *password) equals(q *password) bool {
 }
 
 func (p *password) isValid() bool {
-	repeated := false
 	for i := 1; i < len(p.digits); i++ {
 		if p.digits[i] < p.digits[i-1] {
 			return false
 		}
-		if p.digits[i] == p.digits[i-1] {
-			repeated = true
-		}
 	}
-	return repeated
+
+	repCount := 1
+	for i := 1; i < len(p.digits); i++ {
+		if p.digits[i] == p.digits[i-1] {
+			repCount++
+			continue
+		}
+		if repCount == 2 {
+			return true
+		}
+		repCount = 1
+	}
+
+	return repCount == 2
 }
 
 func (p *password) next() {

@@ -11,9 +11,14 @@ func TestIsValid(t *testing.T) {
 	}{
 		{newPassword(123456), false},
 		{newPassword(123446), true},
-		{newPassword(111111), true},
+		{newPassword(111111), false},
 		{newPassword(223450), false},
 		{newPassword(123789), false},
+
+		{newPassword(112233), true},
+		{newPassword(123444), false},
+		{newPassword(123455), true},
+		{newPassword(111122), true},
 	}
 
 	for _, tc := range tt {
