@@ -8,15 +8,17 @@ import (
 type opCode int
 
 const (
-	opAdd    opCode = 1
-	opMult   opCode = 2
-	opInput  opCode = 3
-	opOutput opCode = 4
-	opHalt   opCode = 99
+	opAdd         opCode = 1
+	opMult        opCode = 2
+	opInput       opCode = 3
+	opOutput      opCode = 4
+	opJumpIfTrue  opCode = 5
+	opJumpIfFalse opCode = 6
+	opHalt        opCode = 99
 )
 
 type Instruction interface {
-	Parse(c *Computer) error
+	Parse(c *Computer)
 	Run(c *Computer)
 	String() string
 }
@@ -32,6 +34,8 @@ func NewInstruction(val int) (Instruction, error) {
 		return new(inputInstruction), nil
 	case opOutput:
 		return new(outputInstruction), nil
+	case opJumpIfTrue, opJumpIfFalse:
+		return &condJumpInstruction{jumpOn: op == opJumpIfTrue}, nil
 	case opHalt:
 		return new(haltInstruction), nil
 	default:
@@ -65,11 +69,34 @@ type inputInstruction struct{ unaryOpInstruction }
 func (i *inputInstruction) String() string  { return fmt.Sprintf("INPUT %v", i.arg) }
 func (i *inputInstruction) Run(c *Computer) { i.arg.write(c, 1) }
 
+type condJumpInstruction struct {
+	jumpOn bool
+	cond   parameter
+	target parameter
+}
+
+func (i *condJumpInstruction) Parse(c *Computer) {
+	params := parseParameters(c, 2)
+	i.cond = params[0]
+	i.target = params[1]
+}
+
+func (i *condJumpInstruction) String() string {
+	return fmt.Sprintf("JIT %v %v", i.cond, i.target)
+}
+
+func (i *condJumpInstruction) Run(c *Computer) {
+	if (i.cond.read(c) == 0) == i.jumpOn {
+		return
+	}
+	c.nextInst = i.target.read(c)
+}
+
 type haltInstruction struct{}
 
-func (i *haltInstruction) Parse(c *Computer) error { return nil }
-func (i *haltInstruction) String() string          { return "HALT" }
-func (i *haltInstruction) Run(c *Computer)         { c.done = true }
+func (i *haltInstruction) Parse(c *Computer) {}
+func (i *haltInstruction) String() string    { return "HALT" }
+func (i *haltInstruction) Run(c *Computer)   { c.done = true }
 
 // utility instructions
 
@@ -101,25 +128,35 @@ func (p parameter) write(c *Computer, val int) {
 
 type unaryOpInstruction struct{ arg parameter }
 
-func (i *unaryOpInstruction) Parse(c *Computer) error {
-	idx := c.nextInst
-	c.nextInst += 2
-	immediate := (c.cells[idx] / 100) == 1
-	i.arg = parameter{c.cells[idx+1], immediate}
-	return nil
+func (i *unaryOpInstruction) Parse(c *Computer) {
+	i.arg = parseParameters(c, 1)[0]
 }
 
 type binaryOpInstruction struct {
 	src1, src2, dest parameter
 }
 
-func (i *binaryOpInstruction) Parse(c *Computer) error {
-	idx := c.nextInst
-	c.nextInst += 4
+func (i *binaryOpInstruction) Parse(c *Computer) {
+	params := parseParameters(c, 3)
+	i.src1 = params[0]
+	i.src2 = params[1]
+	i.dest = params[2]
+}
 
-	op := c.cells[idx]
-	i.src1 = parameter{c.cells[idx+1], (op/100)%10 == 1}
-	i.src2 = parameter{c.cells[idx+2], (op/1000)%10 == 1}
-	i.dest = parameter{c.cells[idx+3], op/10000 == 1}
-	return nil
+func parseParameters(c *Computer, n int) []parameter {
+	idx := c.nextInst
+	c.nextInst += n + 1
+
+	modes := c.cells[idx] / 100
+
+	var params []parameter
+	for i := 1; i <= n; i++ {
+		params = append(params, parameter{
+			c.cells[idx+i],
+			modes%10 == 1,
+		})
+		modes = modes / 10
+	}
+
+	return params
 }

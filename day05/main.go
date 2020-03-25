@@ -73,11 +73,7 @@ func (c *Computer) next() error {
 	if err != nil {
 		return err
 	}
-
-	if err := ins.Parse(c); err != nil {
-		return err
-	}
-
+	ins.Parse(c)
 	ins.Run(c)
 	return nil
 }
