@@ -1,142 +1,125 @@
 package main
 
-import "fmt"
-
-type OpCode int
-
-const (
-	OpAdd    OpCode = 1
-	OpMult   OpCode = 2
-	OpInput  OpCode = 3 // uses dest only
-	OpOutput OpCode = 4 // uses src1 only
-	OpHalt   OpCode = 99
+import (
+	"fmt"
+	"log"
 )
 
-func NewInstruction(op OpCode) (Instruction, error) {
+type opCode int
+
+const (
+	opAdd    opCode = 1
+	opMult   opCode = 2
+	opInput  opCode = 3
+	opOutput opCode = 4
+	opHalt   opCode = 99
+)
+
+type Instruction interface {
+	Parse(c *Computer) error
+	Run(c *Computer)
+	String() string
+}
+
+func NewInstruction(val int) (Instruction, error) {
+	op := opCode(val % 100)
 	switch op {
-	case OpAdd:
+	case opAdd:
 		return new(addInstruction), nil
-	case OpMult:
+	case opMult:
 		return new(multInstruction), nil
-	case OpInput:
+	case opInput:
 		return new(inputInstruction), nil
-	case OpOutput:
+	case opOutput:
 		return new(outputInstruction), nil
-	case OpHalt:
+	case opHalt:
 		return new(haltInstruction), nil
 	default:
 		return nil, fmt.Errorf("unknown op code %d", op)
 	}
 }
 
-type Instruction interface {
-	Op() OpCode
-	Parse(c *Computer) error
-	Run(c *Computer)
-	String() string
-}
+type addInstruction struct{ binaryOpInstruction }
 
-type addInstruction struct {
-	src1 int
-	src2 int
-	dest int
-}
-
-func (i *addInstruction) Op() OpCode { return OpAdd }
-
-func (i *addInstruction) Parse(c *Computer) error {
-	idx := c.nextInst
-	c.nextInst += 4
-	i.src1 = c.cells[idx+1]
-	i.src2 = c.cells[idx+2]
-	i.dest = c.cells[idx+3]
-	return nil
-}
+func (i *addInstruction) Run(c *Computer) { i.dest.write(c, i.src1.read(c)+i.src2.read(c)) }
 
 func (i *addInstruction) String() string {
-	return fmt.Sprintf("ADD %2d = %2d + %2d", i.dest, i.src1, i.src2)
+	return fmt.Sprintf("ADD %v = %v + %v", i.dest, i.src1, i.src2)
 }
 
-func (i *addInstruction) Run(c *Computer) {
-	a := c.read(i.src1)
-	b := c.read(i.src2)
-	c.write(i.dest, a+b)
-}
+type multInstruction struct{ binaryOpInstruction }
 
-type multInstruction struct {
-	src1 int
-	src2 int
-	dest int
-}
-
-func (i *multInstruction) Op() OpCode { return OpMult }
-
-func (i *multInstruction) Parse(c *Computer) error {
-	idx := c.nextInst
-	c.nextInst += 4
-	i.src1 = c.cells[idx+1]
-	i.src2 = c.cells[idx+2]
-	i.dest = c.cells[idx+3]
-	return nil
-}
+func (i *multInstruction) Run(c *Computer) { i.dest.write(c, i.src1.read(c)*i.src2.read(c)) }
 
 func (i *multInstruction) String() string {
-	return fmt.Sprintf("MUL %2d = %2d * %2d", i.dest, i.src1, i.src2)
+	return fmt.Sprintf("MUL %v = %v * %v", i.dest, i.src1, i.src2)
 }
 
-func (i *multInstruction) Run(c *Computer) {
-	a := c.read(i.src1)
-	b := c.read(i.src2)
-	c.write(i.dest, a*b)
-}
+type outputInstruction struct{ unaryOpInstruction }
 
-type outputInstruction struct {
-	src int
-}
+func (i *outputInstruction) String() string  { return fmt.Sprintf("OUTPUT %v", i.arg) }
+func (i *outputInstruction) Run(c *Computer) { fmt.Println("OUTPUT:", i.arg.read(c)) }
 
-func (i *outputInstruction) Op() OpCode { return OpOutput }
+type inputInstruction struct{ unaryOpInstruction }
 
-func (i *outputInstruction) Parse(c *Computer) error {
-	idx := c.nextInst
-	c.nextInst += 2
-	i.src = c.cells[idx+1]
-	return nil
-}
-
-func (i *outputInstruction) String() string {
-	return fmt.Sprintf("OUTPUT %2d", i.src)
-}
-
-func (i *outputInstruction) Run(c *Computer) {
-	// TODO: this won't always be one
-	fmt.Println("OUTPUT:", c.read(i.src))
-}
-
-type inputInstruction struct {
-	dest int
-}
-
-func (i *inputInstruction) Op() OpCode { return OpInput }
-
-func (i *inputInstruction) Parse(c *Computer) error {
-	idx := c.nextInst
-	c.nextInst += 2
-	i.dest = c.cells[idx+1]
-	return nil
-}
-
-func (i *inputInstruction) String() string {
-	return fmt.Sprintf("INPUT %2d", i.dest)
-}
-
-func (i *inputInstruction) Run(c *Computer) {
-	// TODO: this won't always be one
-	c.write(i.dest, 1)
-}
+func (i *inputInstruction) String() string  { return fmt.Sprintf("INPUT %v", i.arg) }
+func (i *inputInstruction) Run(c *Computer) { i.arg.write(c, 1) }
 
 type haltInstruction struct{}
 
-func (i *haltInstruction) Op() OpCode              { return OpHalt }
 func (i *haltInstruction) Parse(c *Computer) error { return nil }
 func (i *haltInstruction) String() string          { return "HALT" }
 func (i *haltInstruction) Run(c *Computer)         { c.done = true }
+
+// utility instructions
+
+type parameter struct {
+	value     int
+	immediate bool
+}
+
+func (p parameter) String() string {
+	if p.immediate {
+		return fmt.Sprint(p.value)
+	}
+	return fmt.Sprintf("@%d", p.value)
+}
+
+func (p parameter) read(c *Computer) int {
+	if p.immediate {
+		return p.value
+	}
+	return c.read(p.value)
+}
+
+func (p parameter) write(c *Computer, val int) {
+	if p.immediate {
+		log.Fatal("wrote into an immediate parameter")
+	}
+	c.write(p.value, val)
+}
+
+type unaryOpInstruction struct{ arg parameter }
+
+func (i *unaryOpInstruction) Parse(c *Computer) error {
+	idx := c.nextInst
+	c.nextInst += 2
+	immediate := (c.cells[idx] / 100) == 1
+	i.arg = parameter{c.cells[idx+1], immediate}
+	return nil
+}
+
+type binaryOpInstruction struct {
+	src1, src2, dest parameter
+}
+
+func (i *binaryOpInstruction) Parse(c *Computer) error {
+	idx := c.nextInst
+	c.nextInst += 4
+
+	op := c.cells[idx]
+	i.src1 = parameter{c.cells[idx+1], (op/100)%10 == 1}
+	i.src2 = parameter{c.cells[idx+2], (op/1000)%10 == 1}
+	i.dest = parameter{c.cells[idx+3], op/10000 == 1}
+	return nil
+}

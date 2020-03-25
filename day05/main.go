@@ -28,12 +28,10 @@ func main() {
 
 	c := NewComputer(program)
 	for !c.done {
-		fmt.Println(c)
 		if err := c.next(); err != nil {
 			log.Fatal(err)
 		}
 	}
-	fmt.Println(c)
 }
 
 type Computer struct {
@@ -71,7 +69,7 @@ func (c *Computer) String() string {
 }
 
 func (c *Computer) next() error {
-	ins, err := NewInstruction(OpCode(c.cells[c.nextInst]))
+	ins, err := NewInstruction(c.cells[c.nextInst])
 	if err != nil {
 		return err
 	}
