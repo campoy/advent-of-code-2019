@@ -14,6 +14,8 @@ const (
 	opOutput      opCode = 4
 	opJumpIfTrue  opCode = 5
 	opJumpIfFalse opCode = 6
+	opLessThan    opCode = 7
+	opEquals      opCode = 8
 	opHalt        opCode = 99
 )
 
@@ -36,6 +38,10 @@ func NewInstruction(val int) (Instruction, error) {
 		return new(outputInstruction), nil
 	case opJumpIfTrue, opJumpIfFalse:
 		return &condJumpInstruction{jumpOn: op == opJumpIfTrue}, nil
+	case opLessThan:
+		return new(lessThanInstruction), nil
+	case opEquals:
+		return new(equalsInstruction), nil
 	case opHalt:
 		return new(haltInstruction), nil
 	default:
@@ -61,13 +67,22 @@ func (i *multInstruction) String() string {
 
 type outputInstruction struct{ unaryOpInstruction }
 
-func (i *outputInstruction) String() string  { return fmt.Sprintf("OUTPUT %v", i.arg) }
+func (i *outputInstruction) String() string { return fmt.Sprintf("OUTPUT %v", i.arg) }
+
 func (i *outputInstruction) Run(c *Computer) { fmt.Println("OUTPUT:", i.arg.read(c)) }
 
 type inputInstruction struct{ unaryOpInstruction }
 
-func (i *inputInstruction) String() string  { return fmt.Sprintf("INPUT %v", i.arg) }
-func (i *inputInstruction) Run(c *Computer) { i.arg.write(c, 1) }
+func (i *inputInstruction) String() string { return fmt.Sprintf("INPUT %v", i.arg) }
+
+func (i *inputInstruction) Run(c *Computer) {
+	val := 0
+	_, err := fmt.Scanf("%d", &val)
+	if err != nil {
+		log.Fatalf("could not read from input: %v", err)
+	}
+	i.arg.write(c, val)
+}
 
 type condJumpInstruction struct {
 	jumpOn bool
@@ -82,7 +97,7 @@ func (i *condJumpInstruction) Parse(c *Computer) {
 }
 
 func (i *condJumpInstruction) String() string {
-	return fmt.Sprintf("JIT %v %v", i.cond, i.target)
+	return fmt.Sprintf("JumpIf(%v) %v %v", i.jumpOn, i.cond, i.target)
 }
 
 func (i *condJumpInstruction) Run(c *Computer) {
@@ -90,6 +105,34 @@ func (i *condJumpInstruction) Run(c *Computer) {
 		return
 	}
 	c.nextInst = i.target.read(c)
+}
+
+type lessThanInstruction struct{ binaryOpInstruction }
+
+func (i *lessThanInstruction) String() string {
+	return fmt.Sprintf("LessThan: %v = %v < %v", i.dest, i.src1, i.src2)
+}
+
+func (i *lessThanInstruction) Run(c *Computer) {
+	if i.src1.read(c) < i.src2.read(c) {
+		i.dest.write(c, 1)
+	} else {
+		i.dest.write(c, 0)
+	}
+}
+
+type equalsInstruction struct{ binaryOpInstruction }
+
+func (i *equalsInstruction) String() string {
+	return fmt.Sprintf("Equals: %v = %v == %v", i.dest, i.src1, i.src2)
+}
+
+func (i *equalsInstruction) Run(c *Computer) {
+	if i.src1.read(c) == i.src2.read(c) {
+		i.dest.write(c, 1)
+	} else {
+		i.dest.write(c, 0)
+	}
 }
 
 type haltInstruction struct{}

@@ -2,16 +2,19 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
-	"os"
 	"strconv"
 	"strings"
 )
 
 func main() {
-	text, err := ioutil.ReadAll(os.Stdin)
+	path := flag.String("p", "input.txt", "path to the file containing the program to execute")
+	flag.Parse()
+
+	text, err := ioutil.ReadFile(*path)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -74,6 +77,7 @@ func (c *Computer) next() error {
 		return err
 	}
 	ins.Parse(c)
+	fmt.Println(">", ins)
 	ins.Run(c)
 	return nil
 }
