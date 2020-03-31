@@ -47,6 +47,7 @@ func (c *Computer) Run() error {
 			return err
 		}
 	}
+	close(c.stdout)
 	return nil
 }
 

@@ -30,7 +30,7 @@ func main() {
 		program = append(program, code)
 	}
 
-	perms := permutations([]int{0, 1, 2, 3, 4})
+	perms := permutations([]int{5, 6, 7, 8, 9})
 
 	maxResult := 0
 	maxSettings := make([]int, *amplifiers)
@@ -69,10 +69,17 @@ func runWithSettings(program []int, amplifiers int, settings []int) (int, error)
 	}
 
 	input <- 0
+	lastOutput := 0
 	for {
 		select {
-		case out := <-output:
-			return out, nil
+		case out, ok := <-output:
+			if ok {
+				lastOutput = out
+				fmt.Println("output:", out)
+			} else {
+				return lastOutput, nil
+			}
+			input <- out
 		case err := <-errc:
 			if err != nil {
 				return 0, err
