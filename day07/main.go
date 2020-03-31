@@ -73,12 +73,11 @@ func runWithSettings(program []int, amplifiers int, settings []int) (int, error)
 	for {
 		select {
 		case out, ok := <-output:
-			if ok {
-				lastOutput = out
-				fmt.Println("output:", out)
-			} else {
+			if !ok {
 				return lastOutput, nil
 			}
+			lastOutput = out
+			fmt.Println("output:", out)
 			input <- out
 		case err := <-errc:
 			if err != nil {
@@ -90,9 +89,6 @@ func runWithSettings(program []int, amplifiers int, settings []int) (int, error)
 
 func permutations(values []int) [][]int {
 	if len(values) == 0 {
-		return nil
-	}
-	if len(values) == 1 {
 		return [][]int{values}
 	}
 
