@@ -50,16 +50,6 @@ func main() {
 		sanOrbits = sanOrbits[:len(sanOrbits)-1]
 	}
 
-	for _, o := range youOrbits {
-		fmt.Printf("%s ", o.name)
-	}
-	fmt.Println()
-
-	for _, o := range sanOrbits {
-		fmt.Printf("%s ", o.name)
-	}
-	fmt.Println()
-
 	fmt.Println(len(youOrbits) - 1 + len(sanOrbits) - 1)
 }
 
